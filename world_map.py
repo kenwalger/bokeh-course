@@ -6,7 +6,7 @@ from bokeh.io import output_file, show
 from bokeh.models import HoverTool
 from bokeh.plotting import ColumnDataSource, figure
 
-output_file('world-map-data.html', title="World Map")
+output_file('world-map.html', title="World Map")
 TOOLS = "pan,wheel_zoom,box_zoom,reset,hover,save"
 url = 'https://raw.githubusercontent.com/johan/world.geo.json/master/countries.geo.json'
 
