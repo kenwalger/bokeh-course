@@ -1,61 +1,73 @@
-from __future__ import print_function
-
-import requests
-import numpy as np
-
-import bokeh
-print(bokeh.__version__)
+import pandas as pd
 
 from bokeh.io import output_file, show
-from bokeh.models import GeoJSONDataSource, HoverTool
-from bokeh.plotting import figure
+from bokeh.layouts import column, row
+from bokeh.models import CategoricalColorMapper, HoverTool
+from bokeh.plotting import ColumnDataSource, figure
 
-url = 'https://raw.githubusercontent.com/johan/world.geo.json/master/countries.geo.json'
+input_file = 'country-pops.csv'
+output_file('pop-life.html')
 
-r = requests.get(url)
-geo_json_data = r.json()
+countries = pd.read_csv(input_file)
 
-print(geo_json_data)
+country_data = ColumnDataSource(countries)
 
+TOOLTIPS = "pan,wheel_zoom,box_zoom,reset,hover,save"
 
-def get_coordinates(features):
-    depth = lambda L: isinstance(L, list) and max(map(depth, L))+1
-    country_id = []
-    xs = []
-    ys = []
-    for feature in geo_json_data['features']:
-        coords = feature['geometry']['coordinates']
-        nbdims = depth(coords)
-        country_id.append(feature['id'])
-        # one border
-        if nbdims == 3:
-            pts = np.array(coords[0], 'f')
-            xs.append(pts[:, 0])
-            ys.append(pts[:, 1])
-        # several borders
-        else:
-            for shape in coords:
-                pts = np.array(shape[0], 'f')
-                xs.append(pts[:, 0])
-                ys.append(pts[:, 1])
-    return country_id, xs, ys
+color_mapper = CategoricalColorMapper(factors=['Asia', 'Africa', 'Antarctica',
+                                               'Australia', 'Central America',
+                                               'Europe', 'North America',
+                                               'Oceania', 'South America'],
+                                      palette=['#00FF00', '#FFD343', 'darkgray',
+                                               'brown', 'cyan', 'crimson',
+                                               'red', '#0000FF', 'purple'])
 
-country_id, xs, ys = get_coordinates(geo_json_data['features'])
+plot_life_expect = figure(x_axis_label='Population',
+                          y_axis_label='Life Expectancy',
+                          title='Population vs. Life Expectancy',
+                          tools=TOOLTIPS)
 
-country_name = [country_id for country in country_id]
+plot_birth_rate = figure(x_axis_label='Population',
+                         y_axis_label='Birth Rate',
+                         title='Population vs. Birth Rate',
+                         tools=TOOLTIPS)
 
-TOOLS = "pan,wheel_zoom,box_zoom,reset,hover,save"
+plot_death_rate = figure(x_axis_label='Population',
+                         y_axis_label='Death Rate',
+                         title='Population vs. Death Rate',
+                         tools=TOOLTIPS)
 
-p = figure(plot_width=900, plot_height=600, title="World Map",
-           tools=TOOLS, x_range=(-180, 180), y_range=(-90, 90))
+plot_life_expect.diamond(x='Population',
+                         y='Life_expectancy',
+                         source=country_data,
+                         size=10,
+                         color=dict(field='Continent', transform=color_mapper),
+                         legend='Continent')
 
-p.patches(xs, ys, fill_color="#F1EEF6", fill_alpha=0.7, line_width=2)
+plot_birth_rate.circle(x='Population',
+                       y='Birthrate',
+                       source=country_data,
+                       size=10,
+                       color=dict(field='Continent', transform=color_mapper),
+                       legend='Continent')
 
-hover = p.select_one(HoverTool)
-hover.point_policy = "follow_mouse"
-hover.tooltips = [
-    ("Country", "@country_name")
-]
+plot_death_rate.triangle(x='Population',
+                         y='Deathrate',
+                         source=country_data,
+                         size=10,
+                         color=dict(field='Continent', transform=color_mapper),
+                         legend='Continent')
 
-output_file("test.html")
-show(p)
+plot_birth_rate.x_range = plot_life_expect.x_range
+plot_death_rate.x_range = plot_life_expect.x_range
+
+plot_life_expect.legend.location = 'bottom_right'
+plot_life_expect.legend.background_fill_color = 'lightgray'
+
+hover = plot_life_expect.select_one(HoverTool)
+hover.tooltips = [('Country Name English', '@Country_English'),
+                  ('Population', '@Population'),
+                  ('Life Expectancy (years)', '@Life_expectancy'),
+                  ]
+
+show(row(column(plot_life_expect, plot_birth_rate), column(plot_death_rate)))
